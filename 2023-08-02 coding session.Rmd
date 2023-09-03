@@ -1,0 +1,110 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-08-02"
+---
+```{r}
+#install.packages("nat")
+library(fafbseg)
+library(dplyr)
+library(natverse)
+#3 below part of natverse
+#library(nat)
+#library(nat.nblast)
+#library(nat.jrcbrains) 
+library(nat.templatebrains)
+```
+
+Task:
+try to find morphological groups (nblast) in a hemilineage of your choice in both FAFB and hemibrain. 
+
+In most cases, a hemilineage corresponds roughly to a cell body fibre in hemibrain. So we'll just use cell body fibre as the hemilineage approximate in hemibrain (the hemilineage annotation doesn't exist in hemibrain yet). You can get root ids of a hemilineage on info , and the corresponding cell_body_fibre name (e.g. ADL26: anterior, dorsal, lateral, 26th) on the hemilineages tab on info. Please make sure you have all neurons in one hemisphere.
+
+
+at the end you can compare:
+the clustering with only FAFB left/right neurons (cut at a height you find intuitive); with
+the clustering with all three hemispheres (cut at a height you find intuitive).
+
+colour the dendrogram labels by the hemispheres (i.e. FAFB left/right, hemibrain).
+
+To get the skeletons, the following functions should work:
+# get flywire skeletons: 
+fafbseg::read_l2skel()
+# get hemibrain skeletons
+neuprintr::neuprint_read_skeletons(ids, data = 'hemibrain:v1.2.1')
+
+units during nblast:
+there are 3 kinds of units: nm/um, FAFB voxel space (1 voxel is 4*4*40nm) and hemibrain voxel space (1 voxel is 8*8*8 nm)
+nblast() likes neurons to be in microns/um.
+flywire l2 skeletons are in nm;
+hemibrain skeletons are in hemibrain voxel space?
+Brain templates:
+FAFB14 - probably in nm?
+FAFB14um - FAFB14 in um?
+JRCFIB2018F
+JRC2018F - this is cross-registered between hemispheres??
+
+Let's start by chosing a hemilineage in FAFB: VPNd1 and find it's corresponding cell body fiber for the hemibrain neurons.
+```{r}
+#to read info table:
+#info = flytable_list_rows('info', chunksize = 10000) doesn't work
+info = flytable_query("select * from info")
+
+#to read hemibrain table:
+hemibrain = flytable_query("select * from hb_info")
+
+#to read hemilineages table
+hemilineages = flytable_query("select * from hemilineages")
+
+#to find hemibrain cell body fiber that corresponds to hemilineage VPNd1
+hemilineages %>% 
+  filter(ito_lee_hemilineage=="VPNd1") %>% 
+  select(hemibrain_map) 
+
+#to get root_ids from VPNd1 FAFB neurons
+info %>% 
+  filter(ito_lee_hemilineage=="VPNd1") %>% 
+  select(root_id) %>% 
+  #remove duplicated rows: 720575940638922624, 720575940623887288"))
+  filter(root_id!=c("720575940638922624", "720575940623887288")) -> VPNd1_ids
+
+#to get root_ids for PVL01 hemibrain neurons
+hemibrain %>% 
+  filter(cellBodyFiber=="PVL01") -> PVL01_ids
+
+```
+Now let's do the morphological groups using nblast
+
+```{r}
+#rgl::setupKnitr()
+
+download_saalfeldlab_registrations()
+
+
+#first we need to dotprops the neurons and flip one hemisphere to the opposite one. 
+
+read_l2dp(VPNd1_ids) %>% 
+  # transform arbitrary location (in nm)
+  filter(XXXone side)
+  mirror_fafb(one side) 
+  
+XXXXcombine flipped side to other side mirror right to left
+
+nblast ->  VPNd1_skl_mirr
+
+for hemibrain transform, xform_brain()
+
+
+scores <- nblast_allbyall(XXX, normalisation = 'normalised')
+
+hckcs <- nhclust(scoremat=kcscores)
+
+library(dendroextras)
+dkcs <- colour_clusters(hckcs, k=3)
+
+labels(dkcs) <- with(kcs20[labels(dkcs)], Gender)
+par(cex=.7) # so labels are legible
+plot(dkcs)
+
+```
+

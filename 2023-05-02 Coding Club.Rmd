@@ -1,0 +1,182 @@
+---
+title: "coding club"
+output: html_document
+---
+
+```{r}
+natmanager::install(pkgs = 'nat', force=T)
+library(fafbseg)
+library(tidyverse)
+library(igraph)
+library(arrow)
+```
+
+```{r}
+#load dataset
+system(paste('open', shQuote(fafbseg:::flywire_connectome_basedir())))
+```
+
+```{r}
+connect_data = fafbseg:::flywire_connectome_file("syn")
+r_connect_data <- read_feather(connect_data) 
+r_connect_data
+```
+Filter the synapse count
+```{r}
+r_connect_data %>% 
+  filter(syn_count > 5) -> f_connect_data
+f_connect_data
+```
+
+read info table into R
+```{r}
+#to read infotable, use the code below
+#info = flytable_list_rows('info', chunksize = 10000)
+# load("/Users/alexandra/Documents/Connectomics/info.rda") 
+info = flytable_query("select * from info")
+info
+```
+filter the AL neurons
+```{r}
+info %>% 
+  filter(cell_class %in% c("thermosensory", "hygrosensory", "olfactory", "ALPN", "ALLN", "ALIN", "ALON")) -> infof
+infof
+```
+1. select synapses where both pre and post neurons are in AL
+--> select row from f_connect_data if both pre_pt_root_id and post_pt_root_id are found in root_630 IDs from infof and
+--> put result in new variable called al_f_connect_data
+
+```{r}
+infof %>% 
+  filter(root_630 %in% f_connect_data$pre_pt_root_id & root_630 %in%f_connect_data$post_pt_root_id) -> al_infof 
+```
+
+
+2. Calculate edge weight metric (input proportion per edge (connection between 2 neurons)) 
+--> to calculate total input, group same post_pt_root_id together and add their number of synapses found in syn_count
+--> put result in new variable called post_neuron_weight
+--> to get input proportion of that specific connection, calculate (syn_count of post_pt_root_id)/(post_neuron_total_syn)
+--> put result in new variable called post_neuron_normalised_weight
+
+3. Create directed graph with weighted edges using iGraph 
+
+4. Pull cell classes and types from info (use hemibrain_type) and assign them to the appropriate vertices (nodes)
+--> replace root_630 ids in graph by cell_class and cell_type
+```{r}
+
+```
+
+nblast
+
+```{r}
+library(cluster)
+library(dendextend)
+
+```
+
+You want to hierarchically cluster nblast scores of neurons (their l2 skeletons) on one side in one hemilineage. 
+
+Please start with writing pseudo-code on the particular steps you'd take for this.
+
+Pseudocode:
+
+1. Select one hemilineage and choose a side
+
+2. Generate skeletons from the L2 graphs
+L2 chunks = collection of supervoxels
+L2 graph tells us which L2 chunks are connected
+With L2 graph we can produce a L2 skeleton where each node corresponds to one of the L2 chunks. From each chunk's ID we can get only it's rough position in space which is why the unrefined skeleton looks so clunky.But good enough for a simple NBLAST!
+
+read_l2skel reads one or more neurons as simplified L2 skeletons.
+(skeletons need to be turned into dotprop before NBLAST)
+
+Dotprops represent neurons as points with associated tangent vectors
+
+read_l2dp reads one or more neurons as simplified dotprops format
+
+
+
+read_l2skel(id, OmitFailures = TRUE, ...)
+
+library(nat.nblast)
+kcdps=read_l2dp(kcids)
+# nb these are in microns
+boundingbox(kcdps)
+kcaba=nblast_allbyall(kcdps)
+kchc=nhclust(scoremat = kcaba)
+plot(kchc)
+# 3d plot using the skeletons rather than dotprops versions of the neurons
+# gamma neurons seprate from the rest
+plot3d(kchc, k=2, db=kcs)
+}
+
+```{r}
+# Install and load required packages
+install.packages("nat")
+library(nat)
+
+library(nat.nblast)
+rgl::setupKnitr()
+
+kcscores <- nblast_allbyall(kcs20, normalisation = 'normalised')
+
+hckcs <- nhclust(scoremat=kcscores)
+
+library(dendroextras)
+dkcs <- colour_clusters(hckcs, k=3)
+
+labels(dkcs) <- with(kcs20[labels(dkcs)], Gender)
+par(cex=.7) # so labels are legible
+plot(dkcs)
+
+
+
+```
+
+```{r}
+library(nat.nblast)
+
+if (FALSE) {
+# install full set of recommended packages including fafbseg-py
+simple_python("full")
+  
+info = flytable_query("select * from info")
+info %>% 
+  filter(ito_lee_hemilineage %in% "SMPpv2_ventral" & side %in% "left")-> hemileft
+hemileft %>% 
+  select(root_id)->root_ID
+
+kcs=read_l2skel(root_ID)
+
+kcdps=read_l2dp(root_ID)
+# the boundingbox function returns the xyz coordinate range for a set of points. It can extract the points from any object (like a skeleton or mesh. You can imagine drawing a cuboid around object aligned to the x,y, and z axes. 
+# Here we use the boundingbox function to make sure the range looked like it was in microns (values in the 100s) not nm (in the 1000s)
+boundingbox(kcdps)
+kcaba=nblast_allbyall(kcdps)
+kchc=nhclust(scoremat = kcaba)
+?nhclust
+plot(kchc)
+# 3d plot using the skeletons rather than dotprops versions of the neurons
+# clear3d() before rerunning plot3d() to delete previous 3d plot.
+clear3d()
+plot3d(kchc, k=3, db=kcs)
+
+}
+
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+```
+

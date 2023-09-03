@@ -1,0 +1,144 @@
+---
+title: "coding club"
+output: html_document
+---
+
+```{r}
+# Question: which library does what?
+library(nat)
+library(fafbseg)
+library(tidyverse)
+library(igraph)
+library(arrow)
+library(coconatfly)
+library(rgl)
+#devtools::install_github("rstats-db/RSQLite")
+
+#simple_python(pyinstall = 'none', pkgs = 'numpy')
+#simple_python('full')
+#reticulate::import('fafbseg')
+```
+Prompt 1: 
+Choose a neuron, whatever you like as long as it has upstream and downstream partners.
+
+```{r}
+
+LC9n = "720575940617678897"
+
+```
+
+Get its top 3 downstream partners and upstream partners (via fafbseg or natverse)
+
+```{r}
+
+# The problem with the following code is that it doesn't give synapse xyz coordinates needed for later in the task.
+
+#cf_partners(cf_ids(flywire =LC9n), partners = 'in') %>%
+  #slice_head(n=3) %>% 
+  #select(pre_id) -> LC9_3in
+
+#cf_partners(cf_ids(flywire = LC9n), partners = 'o') %>% 
+  #slice_head(n=3) %>% 
+  #select(post_id) -> LC9_3o
+
+```
+
+```{r}
+
+# The function flywire_partners() with argument details = TRUE has columns with xyz coordinates of pre and post synapses.
+
+#input partners
+flywire_partners(LC9n, partners = 'i', details = TRUE) %>%
+  #to remove autapses
+  filter(pre_id != post_id) %>% 
+  #conventional cut off point to remove fake synapses
+  filter(cleft_scores > 50) %>% 
+  group_by(pre_id) %>% 
+  mutate(weight=n()) %>% 
+  #good coding practice to always ungroup() after group_by() (see https://bookdown.org/yih_huynh/Guide-to-R-Book/groupby.html). 
+  ungroup() %>% 
+  arrange(desc(weight)) -> LC9_in
+
+LC9_in %>% 
+  distinct(pre_id, .keep_all = TRUE) %>% 
+  slice_head(n=3) -> LC9_3in
+
+#output partners
+flywire_partners(LC9n, partners = 'o', details = TRUE) %>%
+  #to remove autapses
+  filter(pre_id != post_id) %>% 
+  filter(cleft_scores > 50) %>% 
+  group_by(post_id) %>% 
+  mutate(weight=n()) %>% 
+  ungroup() %>%
+  arrange(desc(weight)) -> LC9_o
+
+LC9_o %>% 
+  distinct(post_id, .keep_all = TRUE) %>% 
+  slice_head(n=3) -> LC9_3o
+
+```
+
+Using natverse/Navis, plot all 7 neurons in either 2D or 3D:
+main one in red
+upstream 3 in blue
+downstream 3 in yellow
+
+```{r}
+
+# to plot 3D meshes, use function save_cloudvolume_meshes or fafbseg::read_cloudvolume_meshes()
+# to plot 2D skeletons, use function read_l2skel or read_l2dp 
+
+read_l2skel(LC9n) %>%
+  plot3d(col = "red")
+
+LC9_3in %>% 
+  select(pre_id) %>% 
+  read_l2skel() %>% 
+  plot3d(col = "blue")
+
+LC9_3o %>% 
+  select(post_id) %>% 
+  read_l2skel() %>% 
+  plot3d(col = "yellow")
+
+```
+
+also plot all of the synapse locations between the main neuron and the other 6 as white dots
+
+```{r}
+
+# Yijie recommends to try and use function points3d(), use add = TRUE argument to plot in the same window
+
+#adding input synapses
+
+LC9_in %>% 
+  filter(pre_id %in% LC9_3in$pre_id) 
+
+points3d(LC9_in$pre_x, LC9_in$pre_y, LC9_in$pre_z, col = 'green')
+
+#adding output synapses
+
+LC9_o %>% 
+  filter(pre_id %in% LC9_3o$pre_id) 
+
+points3d(LC9_o$pre_x, LC9_o$pre_y, LC9_o$pre_z, col = 'black')
+
+```
+
+Now choose a cell type, and get all the neurons in that cell type from flytable.
+
+```{r}
+LC9=flytable_meta('LC9%')
+LC9 %>% 
+  select(root_id)
+```
+
+
+Fetch all the upstream and downstream partners of all the neurons in that class.
+
+What are the top 3 upstream classes and top 3 downstream classes?
+
+Do any of the upstream or downstream classes also directly interact?
+
+try and do heatmap to show connectivity
